@@ -14,8 +14,8 @@ const int sensorTrig = 37;
 const int sensorEcho = 39;
 
 // stepper pins
-const int stepperDir = 19;
-const int stepperStep = 18;
+const int stepperDir = 18;
+const int stepperStep = 19;
 const int stepsPerRevolution = 63;
 
 //motor pins
@@ -54,6 +54,14 @@ int carriageState = 0;
 int targetPosition = 0;
 // temp var for storing wait time
 long startTime = 0;
+
+int positions[] = {
+  0, // Bottom
+  100, // Lower intake at beginning position
+  200, // Duck orient position
+  2000, // Place duck on 3 stack position
+  6450/4, // Top position
+};
 
 void startLiftSequence() {
   if(carriageState == 0) {
@@ -97,7 +105,10 @@ void setup(){
   // SETUP STEPPER;
   stepper.setMaxSpeed(1500);
   stepper.setAcceleration(2000);
-  startLiftSequence();
+}
+
+bool isStepperMoving() {
+  return stepper.isRunning();
 }
 
 void receiveEvent(int x){
@@ -127,8 +138,11 @@ void receiveEvent(int x){
     move_rollers(90);
   }else if(msg == 0x0A){
     stop_rollers();
-  } 
-
+  } else if(msg == 0x0B) {
+    Wire.write(isStepperMoving());
+  } else if((msg & 0x0F) == 0x0C) {
+    moveToPosition(positions[msg >> 4]);
+  }
 }
 
 void red_light(){
