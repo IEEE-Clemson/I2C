@@ -1,32 +1,47 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Servo.h>
-#include <Stepper.h>
+#include <AccelStepper.h>
 
 const int pCell = 28;
-const int ledPin = 16;
 const int servo1Pin = 2;
 const int servo2Pin = 3;
-
+const int servo3Pin = 4;
+const int servo4Pin = 5;
 
 // digital pins for distance_sensor(non pwm)
 const int sensorTrig = 37;
 const int sensorEcho = 39;
 
 // stepper pins
-const int stepperDir = 15;
-const int stepperStep = 14;
+const int stepperDir = 19;
+const int stepperStep = 18;
 const int stepsPerRevolution = 63;
 
 //motor pins
-const int motorA1 = 21;
-const int motorA2 = 20;
-const int motorB1 = 19;
-const int motorB2 = 18;
+const int motorA1 = 9;
+const int motorA2 = 8;
+const int motorB1 = 7;
+const int motorB2 = 6;
 
+// Stepper & servo obj
+AccelStepper stepper(AccelStepper::DRIVER, stepperStep, stepperDir);
+
+// 
+bool is_stepper = false;
+bool is_servo1 = false;
+bool is_servo2 = false;
+bool is_servo3 = false;
+bool is_servo4 = false;
+int servo1_pos = 0;
+int servo2_pos = 0;
+int servo3_pos = 0;
+int servo4_pos = 0;
 
 Servo servo1;
 Servo servo2;
+Servo servo3;
+Servo servo4;
 
 void setup(){
   // I2C setup
@@ -39,7 +54,6 @@ void setup(){
   
   // Pins initailization
   pinMode(pCell, INPUT);
-  pinMode(ledPin, OUTPUT);
   pinMode(stepperDir, OUTPUT);
   pinMode(stepperStep, OUTPUT);
   pinMode(motorA1, OUTPUT);
@@ -50,12 +64,12 @@ void setup(){
   // servos
   servo1.attach(servo1Pin);
   servo2.attach(servo2Pin);
+  servo3.attach(servo3Pin);
+  servo4.attach(servo4Pin);
 
-  // Motor direction initilize
-  digitalWrite(motorA1, HIGH);
-  digitalWrite(motorA2, LOW);
-  digitalWrite(motorB2, HIGH);
-  digitalWrite(motorB2, LOW);
+  // SETUP STEPPER;
+  stepper.setMaxSpeed(1500);
+  stepper.setAcceleration(2000);
 }
 
 void receiveEvent(int x){
@@ -67,49 +81,47 @@ void receiveEvent(int x){
     run_servo1();
   }else if(msg==0x03){
     run_servo2();
-  }else if((msg & 0x0F) == 0x04){
-    carriage_up(msg >> 4);
-  }else if((msg  & 0x0F) == 0x05){
-    carriage_down(msg>>4);
-  }else if((msg & 0x0F) == 0x06){
+  }else if(msg==0x04){
+    run_servo3();
+  }else if(msg==0x05){
+    run_servo4();
+  }else if(msg == 0x06){
+    move_carriage();
+  }else if((msg & 0x0F) == 0x07){
     move_flicker(16*(msg >> 4));
-  }else if(msg == 0x07){
+  }else if(msg == 0x08){
+    stop_flicker();
+  }else if(msg == 0x09){
     move_rollers(90);
+  }else if(msg == 0x0A){
+    stop_rollers();
   }
 }
 
 void red_light(){
   int val = analogRead(pCell);
   Wire.write(val>550 ? 0x01 : 0x00);
+  Serial.println(val);
 }
 
 void run_servo1(){
-  for(int i=0;i<180;i++){ 
-    servo1.write(i);
-    delay(10);                    
-  }
-  for(int i=180;i>0;i--){ 
-    servo1.write(i);
-    delay(5);                    
-  }
-  Wire.write(0x04);
+  is_servo1 = true;
 }
 
 void run_servo2(){
-  for(int i=0;i<180;i++){ 
-    servo2.write(i);
-    delay(10);                    
-  }
-  for(int i=180;i>0;i--){ 
-    servo2.write(i);
-    delay(5);                    
-  }
-  Wire.write(0x05);
+  is_servo1 = true;
+}
+
+void run_servo3(){
+  is_servo1 = true;
+}
+
+void run_servo4(){
+  is_servo1 = true;
 }
 
 void requestEvent(){
-  int val = analogRead(pCell);
-  Wire.write(val>550 ? 0x01 : 0x00);
+  return ;
 }
 
 int disSensor(){
@@ -129,36 +141,20 @@ int disSensor(){
 }
 
 // move carriage by certain distance revolutions
-void carriage_up(uint8_t distance){
-  digitalWrite(stepperDir, HIGH);
-  for(int i=0;i<distance;i++){
-    for (int j=0; j<stepsPerRevolution; j++) {
-      digitalWrite(stepperStep, HIGH);
-      delay(2);
-      digitalWrite(stepperStep, LOW);
-      delay(2);
-    }
-  }
-  Wire.write(0x04);
-}
-
-void carriage_down(uint8_t distance){
-  digitalWrite(stepperDir, LOW);
-  for(int i=0;i<distance;i++){
-    for (int j=0; j<stepsPerRevolution; j++) {
-      digitalWrite(stepperStep, HIGH);
-      delay(2);
-      digitalWrite(stepperStep, LOW);
-      delay(2);
-    }
-  }
-  Wire.write(0x07);
+void move_carriage(){
+  is_stepper=true;
 }
 
 void move_flicker(uint8_t speed){
   analogWrite(motorB1, speed%255);
   digitalWrite(motorB2, LOW);
   delay(100);
+  Wire.write(0x08);
+}
+
+void stop_flicker(){
+  digitalWrite(motorB1, LOW);
+  digitalWrite(motorB2, LOW);
   Wire.write(0x08);
 }
 
@@ -169,6 +165,73 @@ void move_rollers(uint8_t speed){
   Wire.write(0x09);
 }
 
+
+void stop_rollers(){
+  digitalWrite(motorA1, LOW);
+  digitalWrite(motorA2, LOW);
+  Wire.write(0x09);
+}
+
 void loop(){
-  digitalWrite(ledPin, HIGH);
+  if(is_servo1){
+    if(servo1_pos<360){
+      servo1.write((180*(servo1_pos>180))+((-1+2*(servo1_pos<=180))*(servo1_pos%180));     
+      servo1_pos++;             
+    }
+    if(servo1_pos==360){
+      Wire.write(0x04);
+      servo1_pos = 0;
+      is_servo1 = false;
+    }
+  }
+  if(is_servo2){
+    if(servo2_pos<360){
+      servo2.write((180*(servo2_pos>180))+((-1+2*(servo2_pos<=180))*(servo2_pos%180));     
+      servo2_pos++;             
+    }
+    if(servo2_pos==360){
+      Wire.write(0x04);
+      servo2_pos = 0;
+      is_servo2 = false;
+    }
+  }
+  if(is_servo3){
+    if(servo3_pos<360){
+      servo3.write((180*(servo3_pos>180))+((-1+2*(servo3_pos<=180))*(servo3_pos%180));     
+      servo3_pos++;             
+    }
+    if(servo3_pos==360){
+      Wire.write(0x04);
+      servo3_pos = 0;
+      is_servo3 = false;
+    }
+  }
+  if(is_servo4){
+    if(servo4_pos<360){
+      servo4.write((180*(servo4_pos>180))+((-1+2*(servo4_pos<=180))*(servo4_pos%180));     
+      servo4_pos++;             
+    }
+    if(servo4_pos==360){
+      Wire.write(0x04);
+      servo4_pos = 0;
+      is_servo4 = false;
+    }
+  }
+  if(is_stepper){
+    stepper.moveTo(-40000);
+    while(stepper.currentPosition() > -6500/4) {
+      stepper.run();
+    }
+    stepper.setSpeed(0);
+    stepper.setCurrentPosition(-6450/4);
+    stepper.moveTo(-6450/4);
+    //stepper.runToPosition();
+    stepper.moveTo(-6300/4);
+    stepper.runToPosition();
+    delay(4000);
+    
+    stepper.moveTo(0);
+    stepper.runToPosition();
+    delay(10000);
+  }
 }
