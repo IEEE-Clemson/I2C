@@ -265,7 +265,7 @@ void progressStepperState() {
 void loop(){
   if(is_servo1){
     if(servo1_pos<360){
-      //servo1.write((180*(servo1_pos>180))+((-1+2*(servo1_pos<=180))*(servo1_pos%180));     
+      servo1.write((180*(servo1_pos>180))+((-1+2*(servo1_pos<=180))*(servo1_pos%180)));     
       servo1_pos++;             
     }
     if(servo1_pos==360){
@@ -276,7 +276,7 @@ void loop(){
   }
   if(is_servo2){
     if(servo2_pos<360){
-      //servo2.write((180*(servo2_pos>180))+((-1+2*(servo2_pos<=180))*(servo2_pos%180));     
+      servo2.write((180*(servo2_pos>180))+((-1+2*(servo2_pos<=180))*(servo2_pos%180)));     
       servo2_pos++;             
     }
     if(servo2_pos==360){
@@ -287,7 +287,7 @@ void loop(){
   }
   if(is_servo3){
     if(servo3_pos<360){
-      //servo3.write((180*(servo3_pos>180))+((-1+2*(servo3_pos<=180))*(servo3_pos%180));     
+      servo3.write((180*(servo3_pos>180))+((-1+2*(servo3_pos<=180))*(servo3_pos%180)));     
       servo3_pos++;             
     }
     if(servo3_pos==360){
@@ -298,7 +298,7 @@ void loop(){
   }
   if(is_servo4){
     if(servo4_pos<360){
-      //servo4.write((180*(servo4_pos>180))+((-1+2*(servo4_pos<=180))*(servo4_pos%180));     
+      servo4.write((180*(servo4_pos>180))+((-1+2*(servo4_pos<=180))*(servo4_pos%180)));     
       servo4_pos++;             
     }
     if(servo4_pos==360){
